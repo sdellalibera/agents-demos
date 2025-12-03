@@ -1,0 +1,59 @@
+#:package Microsoft.Agents.AI.AzureAI.Persistent@1.0.0-preview.251125.1
+#:package Azure.Identity@1.17.1
+
+using Azure;
+using Azure.Identity;
+using Azure.AI.Agents.Persistent;
+
+var BingConnectionId = "/subscriptions/ce579f0b-d3a2-403b-aabc-5d162210094e/resourceGroups/rg-aspire-agent-service/providers/Microsoft.CognitiveServices/accounts/foundry-agentservice/projects/agentservice/connections/binggroundingsearchagentservice";
+
+BingGroundingToolDefinition bingGroundingTool = new(
+    new BingGroundingSearchToolParameters(
+        [new BingGroundingSearchConfiguration(BingConnectionId)]
+    )
+);
+
+var openApiSpec = BinaryData.FromString(File.ReadAllText("../.openapi/weather_openapi.json"));
+OpenApiToolDefinition openApiTool = new(
+    new OpenApiFunctionDefinition("GetWeather", openApiSpec, new OpenApiAnonymousAuthDetails())
+);
+
+var projectEndpoint = "https://foundry-agentservice.services.ai.azure.com/api/projects/agentservice";
+var client = new PersistentAgentsClient(projectEndpoint, new DefaultAzureCredential());
+
+PersistentAgent BingAgent = await client.Administration.CreateAgentAsync(
+    model: "gpt-4.1",
+    name: "AgentWithGrounding",
+    instructions: "You are an assistant used for retrieving actual informations",
+    tools: [bingGroundingTool]
+);
+
+PersistentAgent WeatherAgent = await client.Administration.CreateAgentAsync(
+    model: "gpt-4.1",
+    name: "WeatherAgent",
+    instructions: "You are an agent that returns informations about the weather",
+    tools: [openApiTool]
+);
+
+ConnectedAgentToolDefinition connectedBingAgent = new(
+    new ConnectedAgentDetails(BingAgent.Id,BingAgent.Name,BingAgent.Description)
+);
+
+ConnectedAgentToolDefinition connectedWeatherAgent = new(
+    new ConnectedAgentDetails(WeatherAgent.Id,BingAgent.Name,BingAgent.Description)
+);
+
+PersistentAgent OrchestratorAgent = await client.Administration.CreateAgentAsync(
+    model: "gpt-4.1",
+    name: "OrchestratorAgent",
+    instructions: "You are a supervisor for different agents,redirect queries to the agent that must suits the request",
+    tools: [connectedBingAgent,connectedWeatherAgent]
+);
+
+PersistentAgentThread thread = await client.Threads.CreateThreadAsync();
+
+Console.WriteLine($"Created BingAgent: {BingAgent.Id}");
+Console.WriteLine($"Created WeatherAgent: {WeatherAgent.Id}");
+Console.WriteLine($"Created OrchestratorAgent: {OrchestratorAgent.Id}");
+Console.WriteLine($"Created thread: {thread.Id}");
+
