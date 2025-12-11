@@ -4,8 +4,12 @@
 using Azure;
 using Azure.Identity;
 using Azure.AI.Agents.Persistent;
+using Microsoft.Agents.AI;
 
-var BingConnectionId = "/subscriptions/ce579f0b-d3a2-403b-aabc-5d162210094e/resourceGroups/rg-aspire-agent-service/providers/Microsoft.CognitiveServices/accounts/foundry-agentservice/projects/agentservice/connections/binggroundingsearchagentservice";
+var BingConnectionId = Environment.GetEnvironmentVariable("BingConnectionId");
+var projectEndpoint = Environment.GetEnvironmentVariable("ProjectEndpoint");
+
+var client = new PersistentAgentsClient(projectEndpoint, new DefaultAzureCredential());
 
 BingGroundingToolDefinition bingGroundingTool = new(
     new BingGroundingSearchToolParameters(
@@ -17,9 +21,6 @@ var openApiSpec = BinaryData.FromString(File.ReadAllText("../.openapi/weather_op
 OpenApiToolDefinition openApiTool = new(
     new OpenApiFunctionDefinition("GetWeather", openApiSpec, new OpenApiAnonymousAuthDetails())
 );
-
-var projectEndpoint = "https://foundry-agentservice.services.ai.azure.com/api/projects/agentservice";
-var client = new PersistentAgentsClient(projectEndpoint, new DefaultAzureCredential());
 
 PersistentAgent BingAgent = await client.Administration.CreateAgentAsync(
     model: "gpt-4.1",
