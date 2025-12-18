@@ -1,15 +1,14 @@
 #:package Microsoft.Agents.AI.AzureAI.Persistent@1.0.0-preview.251125.1
-//#:package Microsoft.Agents.AI@1.0.0-preview.251204.1
-//#:package Microsoft.Extensions.AI@10.1.0
 #:package Azure.AI.Projects@1.1.0
 #:package Azure.Identity@1.17.1
 
 using Azure.Identity;
 using Azure.AI.Agents.Persistent;
 using Azure.AI.Projects;
+using System;
 
 //set project endpoint
-const string endpoint = "https://sdellalibera-foundry-demos.services.ai.azure.com/api/projects/foundry-demos";
+const string endpoint = "https://sdellalibera-foundry.services.ai.azure.com/api/projects/agent-framework-demos";
 
 //declare AIProjectClient
 var AIProjectClient = new AIProjectClient(new Uri(endpoint),new DefaultAzureCredential());
@@ -17,7 +16,7 @@ var AIProjectClient = new AIProjectClient(new Uri(endpoint),new DefaultAzureCred
 //declare PersistentAgentsClient
 PersistentAgentsClient agentClient = AIProjectClient.GetPersistentAgentsClient();
 
-//define new agent
+//define  persistent agent
 PersistentAgent agent = await agentClient.Administration.CreateAgentAsync(
     model: "gpt-4.1",
     name: "WriterAgent",
@@ -38,6 +37,7 @@ PersistentThreadMessage message = await agentClient.Messages.CreateMessageAsync(
 //create streaming run
 var streamingRun = agentClient.Runs.CreateRunStreamingAsync(thread.Id, agent.Id);
 
+//streaming response chunks
 await foreach (var chunk in streamingRun)
 {
     if (chunk is MessageContentUpdate contentUpdate)
@@ -46,6 +46,10 @@ await foreach (var chunk in streamingRun)
     }
 }
 
+/*
+comment these 2 lines of code if you need this agent to be persistent,
+for demo purposes it will be deleted after run is completed
+*/
 var agentDelete = await agentClient.Administration.DeleteAgentAsync(agent.Id);
 Console.WriteLine($"\n\nDeleted agent:{agentDelete.Value}");
 
