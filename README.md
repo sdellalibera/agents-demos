@@ -1,16 +1,24 @@
-# Documentation
+# Azure AI Foundry Agents — Demos
 
-This project utilizes .NET single files for simplified deployment and execution. 
+Code samples for building agents and multi-agent workflows with **Azure AI Foundry**, organized by language.
 
-## Prerequisites
+| Folder | Language | Format |
+|--------|----------|--------|
+| [`dotnet/`](dotnet/README.md) | C# / .NET 10 | Single-file scripts (`dotnet run`) |
+| [`python/`](python/README.md) | Python 3.11+ | Jupyter notebooks |
 
-To use these single files, you will need:
-- An existing Foundry resource
+## Samples covered
 
-## Setup Instructions
+- **Persistent Foundry agent** — create an agent, open a thread, and stream the response
+- **Multi-agent workflow** — chain a Planner agent into a Writer agent sequentially
+- **Call an existing agent** — retrieve an agent by ID and run multiple independent conversations
+- **Tool calls with Bing Grounding** — attach the Bing Search tool and observe live tool calls in the stream
 
-The only configuration required is to set the endpoint for your Foundry resource in the files you intend to use. Update the endpoint configuration in each file before running them.
+## Quick links
 
-## Usage
+- [.NET setup and samples →](dotnet/README.md)
+- [Python setup and samples →](python/README.md)
 
-Once the endpoint is configured, the single files can be executed directly without requiring a full project structure or additional dependencies.
+## Authentication
+
+All samples use `DefaultAzureCredential`. Run `az login` once and your local credentials are picked up automatically.
