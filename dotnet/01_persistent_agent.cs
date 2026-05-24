@@ -1,12 +1,16 @@
 #:package Microsoft.Agents.AI.Foundry@1.5.0
 #:package Microsoft.Agents.AI@1.5.0
 #:package Azure.AI.Projects@2.0.1
-#:package Azure.Identity@1.17.1
+#:package Azure.Identity@1.21.0
 #:package DotNetEnv@3.1.0
+#:project Shared/Shared.csproj
 
+using AgentsDemos;
 using Azure.AI.Projects;
+using Azure.AI.Projects.Agents;
 using Azure.Identity;
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
 // Load .env — searches upward from the current directory, same as find_dotenv() in Python
 DotNetEnv.Env.TraversePath().Load();
@@ -16,24 +20,34 @@ var endpoint = Environment.GetEnvironmentVariable("AZURE_FOUNDRY_ENDPOINT")
 
 var projectClient = new AIProjectClient(new Uri(endpoint), new DefaultAzureCredential());
 
-// Create a persistent Foundry v2 (Prompt) agent via the Microsoft Agent Framework adapter.
-// AsAIAgent creates a new agent version under the given name and returns an invocable AIAgent.
+ConsoleHelpers.Pause("create the persistent agent");
+
+// Create a persistent Foundry v2 (Prompt) agent version
 const string AgentName = "WriterAgent";
-AIAgent agent = projectClient.AsAIAgent(
-    model: "gpt-4.1",
-    instructions: "You are a helpful agent that writes engaging book stories.",
-    name: AgentName);
+var definition = new DeclarativeAgentDefinition(model: "gpt-4.1")
+{
+    Instructions = "You are a helpful agent that writes engaging book stories.",
+};
+ProjectsAgentVersion version = await projectClient.AgentAdministrationClient.CreateAgentVersionAsync(
+    agentName: AgentName,
+    options: new ProjectsAgentVersionCreationOptions(definition));
 
-Console.WriteLine($"Agent created: {agent.Name} ({agent.Id})");
+Console.WriteLine($"Agent created: {version.Name} (version {version.Version})");
 
-// Stream the agent's response — v2 has no threads/runs; MAF handles the Responses API.
+ConsoleHelpers.Pause("stream the agent's response");
+
+// Wrap the persistent agent version as a Microsoft Agent Framework AIAgent and stream a response
+AIAgent agent = projectClient.AsAIAgent(version);
+
 Console.WriteLine("\n--- Agent Response ---\n");
-await foreach (AgentRunResponseUpdate update in agent.RunStreamingAsync(
+await foreach (AgentResponseUpdate update in agent.RunStreamingAsync(
     "Write a short story about a robot who discovers music."))
 {
     Console.Write(update.Text);
 }
 
-// Cleanup: delete version 1 of the agent we just created.
-await projectClient.AgentAdministrationClient.DeleteAgentVersionAsync(agentName: AgentName, agentVersion: "1");
-Console.WriteLine("\n\nAgent deleted.");
+ConsoleHelpers.Pause("delete the agent");
+
+// Cleanup: delete the agent (all versions) when done
+await projectClient.AgentAdministrationClient.DeleteAgentAsync(AgentName);
+Console.WriteLine("\nAgent deleted.");

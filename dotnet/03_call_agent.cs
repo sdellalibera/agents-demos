@@ -1,11 +1,17 @@
-#:package Microsoft.Agents.AI.AzureAI.Persistent@1.0.0-preview.251125.1
-#:package Azure.AI.Projects@1.1.0
-#:package Azure.Identity@1.17.1
+#:package Microsoft.Agents.AI.Foundry@1.5.0
+#:package Microsoft.Agents.AI@1.5.0
+#:package Azure.AI.Projects@2.0.1
+#:package Azure.Identity@1.21.0
 #:package DotNetEnv@3.1.0
+#:project Shared/Shared.csproj
 
-using Azure.Identity;
-using Azure.AI.Agents.Persistent;
+using System.ClientModel;
+using AgentsDemos;
 using Azure.AI.Projects;
+using Azure.AI.Projects.Agents;
+using Azure.Identity;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
 // Load .env — searches upward from the current directory, same as find_dotenv() in Python
 DotNetEnv.Env.TraversePath().Load();
@@ -13,38 +19,53 @@ DotNetEnv.Env.TraversePath().Load();
 var endpoint = Environment.GetEnvironmentVariable("AZURE_FOUNDRY_ENDPOINT")
     ?? throw new InvalidOperationException("AZURE_FOUNDRY_ENDPOINT environment variable is not set.");
 
-// Set AZURE_FOUNDRY_AGENT_ID to an existing agent ID.
-// Create one with 01_persistent_agent.cs (comment out the deletion at the end) and copy the printed agent ID.
-var agentId = Environment.GetEnvironmentVariable("AZURE_FOUNDRY_AGENT_ID")
-    ?? throw new InvalidOperationException("AZURE_FOUNDRY_AGENT_ID environment variable is not set.");
+// Set these to the name and version printed by 01_persistent_agent.cs
+const string AgentName = "WriterAgent";
+const string AgentVersion = "1";
 
 var projectClient = new AIProjectClient(new Uri(endpoint), new DefaultAzureCredential());
-PersistentAgentsClient agentClient = projectClient.GetPersistentAgentsClient();
+var admin = projectClient.AgentAdministrationClient;
 
-// Retrieve the existing agent by ID — no need to recreate it
-PersistentAgent agent = await agentClient.Administration.GetAgentAsync(agentId);
-Console.WriteLine($"Using agent: {agent.Name} ({agent.Id})\n");
+ConsoleHelpers.Pause($"get or create agent '{AgentName}'");
 
-// --- First conversation ---
-Console.WriteLine("=== First Conversation ===\n");
-PersistentAgentThread thread1 = await agentClient.Threads.CreateThreadAsync();
-await agentClient.Messages.CreateMessageAsync(thread1.Id, MessageRole.User, "Write a poem about the sea.");
-
-await foreach (var update in agentClient.Runs.CreateRunStreamingAsync(thread1.Id, agent.Id))
+// Try to retrieve the existing agent version; if it doesn't exist (e.g. it was
+// deleted by a previous sample), create it on the fly so this script still works.
+ProjectsAgentVersion version;
+try
 {
-    if (update is MessageContentUpdate content)
-        Console.Write(content.Text);
+    version = await admin.GetAgentVersionAsync(agentName: AgentName, agentVersion: AgentVersion);
+    Console.WriteLine($"Found existing agent: {version.Name} (version {version.Version})");
+}
+catch (ClientResultException ex) when (ex.Status == 404)
+{
+    Console.WriteLine($"Agent '{AgentName}' v{AgentVersion} not found — creating it now...");
+    version = await admin.CreateAgentVersionAsync(
+        agentName: AgentName,
+        options: new ProjectsAgentVersionCreationOptions(new DeclarativeAgentDefinition("gpt-4.1")
+        {
+            Instructions = "You are a helpful agent that writes engaging book stories.",
+        }));
+    Console.WriteLine($"Agent created: {version.Name} (version {version.Version})");
 }
 
-// --- Second conversation (same agent, new thread) ---
-Console.WriteLine("\n\n=== Second Conversation ===\n");
-PersistentAgentThread thread2 = await agentClient.Threads.CreateThreadAsync();
-await agentClient.Messages.CreateMessageAsync(thread2.Id, MessageRole.User, "Write a poem about the mountains.");
+AIAgent agent = projectClient.AsAIAgent(version);
 
-await foreach (var update in agentClient.Runs.CreateRunStreamingAsync(thread2.Id, agent.Id))
+// Each AIAgent.RunStreamingAsync call is a stateless conversation — same agent serves multiple
+
+ConsoleHelpers.Pause("run the first conversation");
+
+Console.WriteLine("\n=== First Conversation ===\n");
+await foreach (AgentResponseUpdate update in agent.RunStreamingAsync("Write a poem about the sea."))
 {
-    if (update is MessageContentUpdate content)
-        Console.Write(content.Text);
+    Console.Write(update.Text);
+}
+
+ConsoleHelpers.Pause("run the second conversation");
+
+Console.WriteLine("\n=== Second Conversation ===\n");
+await foreach (AgentResponseUpdate update in agent.RunStreamingAsync("Write a poem about the mountains."))
+{
+    Console.Write(update.Text);
 }
 
 Console.WriteLine();
