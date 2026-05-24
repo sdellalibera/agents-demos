@@ -1,11 +1,12 @@
-#:package Microsoft.Agents.AI.AzureAI.Persistent@1.0.0-preview.251125.1
-#:package Azure.AI.Projects@1.1.0
+#:package Microsoft.Agents.AI.Foundry@1.5.0
+#:package Microsoft.Agents.AI@1.5.0
+#:package Azure.AI.Projects@2.0.1
 #:package Azure.Identity@1.17.1
 #:package DotNetEnv@3.1.0
 
-using Azure.Identity;
-using Azure.AI.Agents.Persistent;
 using Azure.AI.Projects;
+using Azure.Identity;
+using Microsoft.Agents.AI;
 
 // Load .env — searches upward from the current directory, same as find_dotenv() in Python
 DotNetEnv.Env.TraversePath().Load();
@@ -14,35 +15,25 @@ var endpoint = Environment.GetEnvironmentVariable("AZURE_FOUNDRY_ENDPOINT")
     ?? throw new InvalidOperationException("AZURE_FOUNDRY_ENDPOINT environment variable is not set.");
 
 var projectClient = new AIProjectClient(new Uri(endpoint), new DefaultAzureCredential());
-PersistentAgentsClient agentClient = projectClient.GetPersistentAgentsClient();
 
-// Create a persistent Foundry agent
-PersistentAgent agent = await agentClient.Administration.CreateAgentAsync(
+// Create a persistent Foundry v2 (Prompt) agent via the Microsoft Agent Framework adapter.
+// AsAIAgent creates a new agent version under the given name and returns an invocable AIAgent.
+const string AgentName = "WriterAgent";
+AIAgent agent = projectClient.AsAIAgent(
     model: "gpt-4.1",
-    name: "WriterAgent",
-    description: "An agent that writes creative stories",
-    instructions: "You are a helpful agent that writes engaging book stories.");
+    instructions: "You are a helpful agent that writes engaging book stories.",
+    name: AgentName);
 
-Console.WriteLine($"Agent created: {agent.Id}");
+Console.WriteLine($"Agent created: {agent.Name} ({agent.Id})");
 
-// Create a conversation thread
-PersistentAgentThread thread = await agentClient.Threads.CreateThreadAsync();
-Console.WriteLine($"Thread created: {thread.Id}");
-
-// Add a user message to the thread
-await agentClient.Messages.CreateMessageAsync(
-    thread.Id,
-    MessageRole.User,
-    "Write a short story about a robot who discovers music.");
-
-// Stream the agent's response
+// Stream the agent's response — v2 has no threads/runs; MAF handles the Responses API.
 Console.WriteLine("\n--- Agent Response ---\n");
-await foreach (var update in agentClient.Runs.CreateRunStreamingAsync(thread.Id, agent.Id))
+await foreach (AgentRunResponseUpdate update in agent.RunStreamingAsync(
+    "Write a short story about a robot who discovers music."))
 {
-    if (update is MessageContentUpdate contentUpdate)
-        Console.Write(contentUpdate.Text);
+    Console.Write(update.Text);
 }
 
-// Cleanup: delete the agent when done
-await agentClient.Administration.DeleteAgentAsync(agent.Id);
+// Cleanup: delete version 1 of the agent we just created.
+await projectClient.AgentAdministrationClient.DeleteAgentVersionAsync(agentName: AgentName, agentVersion: "1");
 Console.WriteLine("\n\nAgent deleted.");

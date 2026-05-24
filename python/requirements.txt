@@ -1,0 +1,5 @@
+azure-ai-projects>=2.0.0,<3.0.0
+azure-identity>=1.17.0,<2.0.0
+openai>=1.50.0,<3.0.0
+python-dotenv>=1.0.0,<2.0.0
+ipykernel>=6.29.0
