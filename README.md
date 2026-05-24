@@ -1,6 +1,6 @@
 # Azure AI Foundry Agents — Demos
 
-Code samples for building agents and multi-agent workflows with **Azure AI Foundry**, organized by language.
+Code samples for building agents and multi-agent workflows with **Microsoft Foundry**, organized by language.
 
 | Folder | Language | Format |
 |--------|----------|--------|
