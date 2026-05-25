@@ -15,15 +15,30 @@ These samples use [Jupyter notebooks](https://jupyter.org/) with the `azure-ai-p
 
 From the repo root:
 
-```bash
+**PowerShell (Windows):**
+
+```powershell
 cd python
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python -m ipykernel install --user --name agents-demos-py --display-name "Python (agents-demos)"
 ```
 
-> Attendees: re-run `source .venv/bin/activate` in every new terminal. The `.venv/` folder is gitignored and is meant to be recreated per machine. The `ipykernel install` step registers a kernel named **Python (agents-demos)** so VS Code lists it in the kernel picker without having to browse to the venv binary.
+> If you get an execution-policy error, run this once first:
+> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned`
+
+**Bash (macOS/Linux):**
+
+```bash
+cd python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m ipykernel install --user --name agents-demos-py --display-name "Python (agents-demos)"
+```
+
+> Attendees: re-run the activate command (`.\.venv\Scripts\Activate.ps1` on Windows, `source .venv/bin/activate` on macOS/Linux) in every new terminal. The `.venv/` folder is gitignored and is meant to be recreated per machine. The `ipykernel install` step registers a kernel named **Python (agents-demos)** so VS Code lists it in the kernel picker without having to browse to the venv binary.
 
 ### 2. Configure environment variables
 
